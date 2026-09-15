@@ -33,6 +33,15 @@ pub struct AigNode {
     right: NodeId,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum LabelKind {
+    Output,
+    BadState,
+    Invariant,
+    Justice,
+    Fairness,
+}
+
 /// A built AIG that can be evaluated, simulated, or rendered as DOT.
 #[derive(Debug)]
 pub struct AigGraph {
@@ -40,6 +49,10 @@ pub struct AigGraph {
     inputs: Vec<NodeId>,
     latches: Vec<NodeId>,
     outputs: Vec<NodeId>,
+    bad_states: Vec<NodeId>,
+    invariants: Vec<NodeId>,
+    justice: Vec<NodeId>,
+    fairness: Vec<NodeId>,
 }
 
 /// Incrementally builds an [`AigGraph`].
@@ -227,6 +240,10 @@ impl AigGraph {
             inputs: Vec::new(),
             latches: Vec::new(),
             outputs: Vec::new(),
+            bad_states: vec![],
+            invariants: vec![],
+            justice: vec![],
+            fairness: vec![],
         }
     }
 
@@ -236,6 +253,18 @@ impl AigGraph {
     /// latch has been created.
     pub fn node(&mut self, id: NodeId) -> &mut AigNode {
         &mut self.nodes[id.index()]
+    }
+
+    pub fn labels(&self) -> impl Iterator<Item=(LabelKind, usize, NodeId)> {
+        self.outputs.iter().enumerate().map(|(i, &n)| (LabelKind::Output, i, n)).chain(
+            self.bad_states.iter().enumerate().map(|(i, &n)| (LabelKind::BadState, i, n))
+        ).chain(
+            self.invariants.iter().enumerate().map(|(i, &n)| (LabelKind::Invariant, i, n))
+        ).chain(
+            self.justice.iter().enumerate().map(|(i, &n)| (LabelKind::Justice, i, n))
+        ).chain(
+            self.fairness.iter().enumerate().map(|(i, &n)| (LabelKind::Fairness, i, n))
+        )
     }
 }
 
@@ -347,6 +376,22 @@ impl AigBuilder {
     /// Add a primary output signal.
     pub fn add_output(&mut self, output: NodeId) {
         self.graph.outputs.push(output);
+    }
+
+    pub fn add_bad_state(&mut self, output: NodeId) {
+        self.graph.bad_states.push(output);
+    }
+
+    pub fn add_invariant(&mut self, output: NodeId) {
+        self.graph.invariants.push(output);
+    }
+
+    pub fn add_justice(&mut self, output: NodeId) {
+        self.graph.justice.push(output);
+    }
+
+    pub fn add_fairness(&mut self, output: NodeId) {
+        self.graph.fairness.push(output);
     }
 }
 

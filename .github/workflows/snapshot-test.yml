@@ -42,3 +42,6 @@ jobs:
 
       - name: Run AIGER snapshot tests
         run: turnt -e raw -e opt tests/inputs/*.aag
+
+      - name: Run AIGER snapshot tests on HRT benchmarks
+        run: turnt -e raw -e opt benchmark/hrt/*.aig
