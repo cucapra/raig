@@ -22,10 +22,13 @@ use std::io::{self, BufRead, Error};
 
 mod ascii_parser;
 mod binary_parser;
+mod serializer;
 
 use crate::graph::{AigGraph, NodeId};
 use ascii_parser::parse_ascii_aiger_into_graph;
 use binary_parser::parse_binary_aiger_into_graph;
+
+pub use serializer::*;
 
 /// Parsed metadata from an AIGER header line.
 #[derive(Debug)]

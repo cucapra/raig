@@ -217,6 +217,14 @@ impl AigNode {
 
         self.right = latch_input;
     }
+
+    pub fn get_latch_input(&self) -> Option<NodeId> {
+        if self.is_latch() {
+            Some(self.right)
+        } else {
+            None
+        }
+    }
 }
 
 impl AigGraph {
@@ -236,6 +244,30 @@ impl AigGraph {
     /// latch has been created.
     pub fn node(&mut self, id: NodeId) -> &mut AigNode {
         &mut self.nodes[id.index()]
+    }
+
+    pub fn inputs(&self) -> &[NodeId] {
+        &self.inputs
+    }
+    pub fn outputs(&self) -> &[NodeId] {
+        &self.outputs
+    }
+
+    pub fn latches(&self) -> &[NodeId] {
+        &self.latches
+    }
+
+    pub fn num_and_gates(&self) -> usize {
+        // there are only three kinds of nodes: inputs, latches and and gates
+        self.nodes.len() - self.inputs.len() - self.latches.len()
+    }
+
+    pub fn and_gates(&self) -> impl Iterator<Item = NodeId> {
+        self.nodes
+            .iter()
+            .enumerate()
+            .filter(|(_, node)| node.is_and())
+            .map(|(idx, _)| NodeId::from(idx))
     }
 }
 
