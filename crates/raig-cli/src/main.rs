@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
-use raig::aiger::{run_parser_with_options, write_ascii_aiger, write_binary_aiger};
+use raig::aiger::{AigerMode, run_parser_with_options, write_aiger_with_symbol_table_and_comments};
 use raig::graph;
+use raig::graph::SymbolTable;
 use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter};
@@ -101,7 +102,7 @@ fn main() -> io::Result<()> {
             pre_optimize,
             pretty,
         } => {
-            let graph = parse_input(&input, pre_optimize)?;
+            let (graph, _, _) = parse_input(&input, pre_optimize)?;
 
             let stimulus_file = File::open(&stimulus)?;
             let stimulus_reader = BufReader::new(stimulus_file);
@@ -117,16 +118,34 @@ fn main() -> io::Result<()> {
         }
 
         Commands::Convert { input, output } => {
-            let graph = parse_input(&input, false)?;
+            let (graph, st, comments) = parse_input(&input, false)?;
             if let Some(out) = output {
                 let mut out_writer = BufWriter::new(File::create(&out)?);
                 match out.extension().and_then(OsStr::to_str) {
-                    Some("aag") => write_ascii_aiger(&graph, &mut out_writer)?,
-                    Some("aig") => write_binary_aiger(&graph, &mut out_writer)?,
+                    Some("aag") => write_aiger_with_symbol_table_and_comments(
+                        &graph,
+                        &st,
+                        &comments,
+                        AigerMode::Ascii,
+                        &mut out_writer,
+                    )?,
+                    Some("aig") => write_aiger_with_symbol_table_and_comments(
+                        &graph,
+                        &st,
+                        &comments,
+                        AigerMode::Binary,
+                        &mut out_writer,
+                    )?,
                     _ => eprintln!("Unsupported file extension"),
                 }
             } else {
-                write_ascii_aiger(&graph, &mut std::io::stdout())?;
+                write_aiger_with_symbol_table_and_comments(
+                    &graph,
+                    &st,
+                    &comments,
+                    AigerMode::Ascii,
+                    &mut io::stdout(),
+                )?;
             }
         }
 
@@ -135,7 +154,7 @@ fn main() -> io::Result<()> {
             pre_optimize,
             output,
         } => {
-            let graph = parse_input(&input, pre_optimize)?;
+            let (graph, _, _) = parse_input(&input, pre_optimize)?;
             let dot: String = graph.to_dot();
 
             if let Some(output) = output {
@@ -150,7 +169,10 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn parse_input(input: &str, pre_optimize: bool) -> io::Result<graph::AigGraph> {
+fn parse_input(
+    input: &str,
+    pre_optimize: bool,
+) -> io::Result<(graph::AigGraph, SymbolTable, String)> {
     if input == "-" {
         let stdin = io::stdin();
         let mut reader = BufReader::new(stdin.lock());

@@ -1,13 +1,13 @@
 use std::io::{BufRead, Error, Read};
 
-use crate::aiger::{AigerHeader, LineReader, Literals};
-use crate::graph::{AigBuilder, AigGraph, NodeId};
+use crate::aiger::{AigerHeader, LineReader, Literals, parse_symbol_table_and_comments};
+use crate::graph::{AigBuilder, AigGraph, NodeId, SymbolTable};
 
 pub fn parse_binary_aiger_into_graph(
     header: AigerHeader,
     reader: &mut impl BufRead,
     pre_optimize: bool,
-) -> Result<AigGraph, Error> {
+) -> Result<(AigGraph, SymbolTable, String), Error> {
     let mut graph = AigBuilder::new();
     let mut literals = Literals::new(header.max_var);
 
@@ -85,7 +85,10 @@ pub fn parse_binary_aiger_into_graph(
     }
     debug_assert!(label_lits.is_empty());
 
-    Ok(graph.build())
+    // optional symbol table
+    let mut line_reader = LineReader::new(reader);
+    let (st, comments) = parse_symbol_table_and_comments(&mut line_reader)?;
+    Ok((graph.build(), st, comments))
 }
 
 /// Decodes the binary-encoded AND gate representation.

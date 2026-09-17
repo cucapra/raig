@@ -2,10 +2,48 @@
 // released under MIT License
 // author: Kevin Laeufer <laeufer@cornell.edu>
 
-use crate::graph::{AigGraph, NodeId};
+use crate::aiger::AigerMode;
+use crate::graph::{AigGraph, NodeId, SymbolTable};
 use std::io::{Result, Write};
+
 pub fn write_ascii_aiger(g: &AigGraph, out: &mut impl Write) -> Result<()> {
-    write_header(g, true, out)?;
+    write_aiger(g, AigerMode::Ascii, out)
+}
+
+pub fn write_aiger(g: &AigGraph, mode: AigerMode, out: &mut impl Write) -> Result<()> {
+    write_aiger_with_symbol_table(g, &SymbolTable::default(), mode, out)
+}
+
+pub fn write_aiger_with_symbol_table(
+    g: &AigGraph,
+    st: &SymbolTable,
+    mode: AigerMode,
+    out: &mut impl Write,
+) -> Result<()> {
+    write_aiger_with_symbol_table_and_comments(g, st, &"", mode, out)
+}
+
+pub fn write_aiger_with_symbol_table_and_comments<'a>(
+    g: &AigGraph,
+    st: &SymbolTable,
+    comments: &str,
+    mode: AigerMode,
+    out: &mut impl Write,
+) -> Result<()> {
+    write_header(g, mode, out)?;
+    match mode {
+        AigerMode::Ascii => write_ascii_aiger_body(g, out),
+        AigerMode::Binary => write_binary_aiger_body(g, out),
+    }?;
+    write_symbol_table(st, out)?;
+    if !comments.is_empty() {
+        writeln!(out, "c")?; // comment header
+        writeln!(out, "{comments}")?;
+    }
+    Ok(())
+}
+
+fn write_ascii_aiger_body(g: &AigGraph, out: &mut impl Write) -> Result<()> {
     for &input in g.inputs() {
         debug_assert!(!input.is_inverted());
         writeln!(out, "{}", to_lit(input))?;
@@ -28,6 +66,9 @@ pub fn write_ascii_aiger(g: &AigGraph, out: &mut impl Write) -> Result<()> {
 
     Ok(())
 }
+fn write_binary_aiger_body(_g: &AigGraph, _out: &mut impl Write) -> Result<()> {
+    todo!("binary")
+}
 
 fn to_lit(id: NodeId) -> usize {
     if id.is_false() {
@@ -39,14 +80,8 @@ fn to_lit(id: NodeId) -> usize {
     }
 }
 
-pub fn write_binary_aiger(g: &AigGraph, out: &mut impl Write) -> Result<()> {
-    write_header(g, false, out)?;
-
-    todo!()
-}
-
-fn write_header(g: &AigGraph, is_ascii_not_binary: bool, out: &mut impl Write) -> Result<()> {
-    let tag = if is_ascii_not_binary { "aag" } else { "aig" };
+fn write_header(g: &AigGraph, mode: AigerMode, out: &mut impl Write) -> Result<()> {
+    let tag = mode.ext();
     let i = g.inputs().len();
     let l = g.latches().len();
     let o = g.outputs().len();
@@ -61,5 +96,13 @@ fn write_header(g: &AigGraph, is_ascii_not_binary: bool, out: &mut impl Write) -
     } else {
         writeln!(out, "{tag} {m} {i} {l} {o} {a}")?;
     }
+    Ok(())
+}
+
+fn write_symbol_table(st: &SymbolTable, out: &mut impl Write) -> Result<()> {
+    for (kind, idx, name) in st.symbols() {
+        writeln!(out, "{}{idx} {name}", kind.tag() as char)?;
+    }
+
     Ok(())
 }

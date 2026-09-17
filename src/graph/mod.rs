@@ -9,9 +9,11 @@ use std::ops::Index;
 mod eval;
 mod graphviz;
 mod stimulus;
+mod symbols;
 
 pub use eval::{SimulationStep, Simulator, Value};
 pub use stimulus::{Stimulus, StimulusParser};
+pub use symbols::{SymbolKind, SymbolTable};
 
 /// An identifier for a signal in an AIG.
 ///
@@ -37,7 +39,7 @@ pub struct AigNode {
 pub enum LabelKind {
     Output,
     BadState,
-    Invariant,
+    Constraints,
     Justice,
     Fairness,
 }
@@ -50,7 +52,7 @@ pub struct AigGraph {
     latches: Vec<NodeId>,
     outputs: Vec<NodeId>,
     bad_states: Vec<NodeId>,
-    invariants: Vec<NodeId>,
+    constraints: Vec<NodeId>,
     justice: Vec<NodeId>,
     fairness: Vec<NodeId>,
 }
@@ -249,7 +251,7 @@ impl AigGraph {
             latches: Vec::new(),
             outputs: Vec::new(),
             bad_states: vec![],
-            invariants: vec![],
+            constraints: vec![],
             justice: vec![],
             fairness: vec![],
         }
@@ -279,7 +281,7 @@ impl AigGraph {
     }
 
     pub fn invariants(&self) -> &[NodeId] {
-        &self.invariants
+        &self.constraints
     }
 
     pub fn justice(&self) -> &[NodeId] {
@@ -304,7 +306,7 @@ impl AigGraph {
     }
 
     /// Returns an iterator over all labels in the following order:
-    /// output -> bad_states -> invariants -> justice -> fairness
+    /// output -> bad_states -> constraints -> justice -> fairness
     pub fn labels(&self) -> impl Iterator<Item = (LabelKind, usize, NodeId)> {
         self.outputs
             .iter()
@@ -317,10 +319,10 @@ impl AigGraph {
                     .map(|(i, &n)| (LabelKind::BadState, i, n)),
             )
             .chain(
-                self.invariants
+                self.constraints
                     .iter()
                     .enumerate()
-                    .map(|(i, &n)| (LabelKind::Invariant, i, n)),
+                    .map(|(i, &n)| (LabelKind::Constraints, i, n)),
             )
             .chain(
                 self.justice
@@ -452,7 +454,7 @@ impl AigBuilder {
     }
 
     pub fn add_invariant(&mut self, output: NodeId) {
-        self.graph.invariants.push(output);
+        self.graph.constraints.push(output);
     }
 
     pub fn add_justice(&mut self, output: NodeId) {

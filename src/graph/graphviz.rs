@@ -76,7 +76,7 @@ impl AigGraph {
             let prefix = match kind {
                 LabelKind::Output => "out",
                 LabelKind::BadState => "bad",
-                LabelKind::Invariant => "inv",
+                LabelKind::Constraints => "inv",
                 LabelKind::Justice => "just",
                 LabelKind::Fairness => "fair",
             };

@@ -1,13 +1,13 @@
 use std::io::{BufRead, Error};
 
-use crate::aiger::{AigerHeader, LineReader, Literals};
-use crate::graph::{AigBuilder, AigGraph, NodeId};
+use crate::aiger::{AigerHeader, LineReader, Literals, parse_symbol_table_and_comments};
+use crate::graph::{AigBuilder, AigGraph, NodeId, SymbolTable};
 
 pub fn parse_ascii_aiger_into_graph(
     header: AigerHeader,
     reader: &mut impl BufRead,
     pre_optimize: bool,
-) -> Result<AigGraph, Error> {
+) -> Result<(AigGraph, SymbolTable, String), Error> {
     assert_eq!(header.num_bad_states, 0, "bad states not supported");
     assert_eq!(header.num_invariants, 0, "invariants not supported");
     assert_eq!(header.num_justice, 0, "justice properties not supported");
@@ -72,5 +72,7 @@ pub fn parse_ascii_aiger_into_graph(
         graph.add_output(output_id);
     }
 
-    Ok(graph.build())
+    // optional symbol table
+    let (st, comments) = parse_symbol_table_and_comments(&mut line_reader)?;
+    Ok((graph.build(), st, comments))
 }
