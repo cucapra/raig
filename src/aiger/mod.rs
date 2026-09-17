@@ -64,6 +64,17 @@ pub struct AigerHeader {
     pub num_fairness: usize,
 }
 
+impl AigerHeader {
+    /// Returns the total number of outputs, bad_states, invariants, justice and fairness properties
+    pub fn num_labels(&self) -> usize {
+        self.num_outputs
+            + self.num_bad_states
+            + self.num_invariants
+            + self.num_justice
+            + self.num_fairness
+    }
+}
+
 /// Parse an AIGER stream into an [`AigGraph`].
 ///
 /// The parser accepts ASCII AIGER (`aag`) and binary AIGER (`aig`) input. When

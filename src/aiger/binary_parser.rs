@@ -8,11 +8,6 @@ pub fn parse_binary_aiger_into_graph(
     reader: &mut impl BufRead,
     pre_optimize: bool,
 ) -> Result<AigGraph, Error> {
-    assert_eq!(header.num_bad_states, 0, "bad states not supported");
-    assert_eq!(header.num_invariants, 0, "invariants not supported");
-    assert_eq!(header.num_justice, 0, "justice properties not supported");
-    assert_eq!(header.num_fairness, 0, "fairness constraints not supported");
-
     let mut graph = AigBuilder::new();
     let mut literals = Literals::new(header.max_var);
 
@@ -24,7 +19,8 @@ pub fn parse_binary_aiger_into_graph(
 
     // Parse the ASCII-formatted lines.
     let mut latch_inputs: Vec<(NodeId, usize)> = Vec::with_capacity(header.num_inputs);
-    let mut output_lits: Vec<usize> = Vec::with_capacity(header.num_outputs);
+    // outputs and the different asserts/assumptions are all essentially semantic labels for expressions
+    let mut label_lits: Vec<usize> = Vec::with_capacity(header.num_labels());
     {
         let mut line_reader = LineReader::new(reader);
 
@@ -37,10 +33,10 @@ pub fn parse_binary_aiger_into_graph(
             literals.add(latch_lit, latch_id);
             latch_inputs.push((latch_id, latch_input_lit));
         }
-        // same idea for outputs
-        for _ in 0..header.num_outputs {
-            let output_lit = line_reader.read_int()?.expect("malformed output literal");
-            output_lits.push(output_lit);
+        // same idea for labels
+        for _ in 0..header.num_labels() {
+            let lit = line_reader.read_int()?.expect("malformed output literal");
+            label_lits.push(lit);
         }
     }
 
@@ -64,17 +60,30 @@ pub fn parse_binary_aiger_into_graph(
         literals.add(lhs_lit, and_id);
     }
 
-    // resolve lacthes
+    // resolve latches
     for (latch_id, latch_input_lit) in latch_inputs {
         let latch_input_id: NodeId = literals.get(latch_input_lit);
         graph.node(latch_id).set_latch_input(latch_input_id);
     }
 
-    // resolve outputs
-    for output_lit in output_lits {
-        let output_id: NodeId = literals.get(output_lit);
-        graph.add_output(output_id);
+    // resolve labels
+    label_lits.reverse();
+    for _ in 0..header.num_outputs {
+        graph.add_output(literals.get(label_lits.pop().unwrap()));
     }
+    for _ in 0..header.num_bad_states {
+        graph.add_bad_state(literals.get(label_lits.pop().unwrap()));
+    }
+    for _ in 0..header.num_invariants {
+        graph.add_invariant(literals.get(label_lits.pop().unwrap()));
+    }
+    for _ in 0..header.num_justice {
+        graph.add_justice(literals.get(label_lits.pop().unwrap()));
+    }
+    for _ in 0..header.num_fairness {
+        graph.add_fairness(literals.get(label_lits.pop().unwrap()));
+    }
+    debug_assert!(label_lits.is_empty());
 
     Ok(graph.build())
 }
