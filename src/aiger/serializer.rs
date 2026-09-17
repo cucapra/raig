@@ -15,8 +15,8 @@ pub fn write_ascii_aiger(g: &AigGraph, out: &mut impl Write) -> Result<()> {
         let next = g[latch].get_latch_input().unwrap();
         writeln!(out, "{} {}", to_lit(latch), to_lit(next))?;
     }
-    for &output in g.outputs() {
-        writeln!(out, "{}", to_lit(output))?;
+    for (_, _, node) in g.labels() {
+        writeln!(out, "{}", to_lit(node))?;
     }
 
     for node in g.and_gates() {
@@ -30,7 +30,13 @@ pub fn write_ascii_aiger(g: &AigGraph, out: &mut impl Write) -> Result<()> {
 }
 
 fn to_lit(id: NodeId) -> usize {
-    ((usize::try_from(id).unwrap() + 1) << 1) + id.is_inverted() as usize
+    if id.is_false() {
+        0
+    } else if id.is_true() {
+        1
+    } else {
+        ((usize::try_from(id).unwrap() + 1) << 1) + id.is_inverted() as usize
+    }
 }
 
 pub fn write_binary_aiger(g: &AigGraph, out: &mut impl Write) -> Result<()> {
@@ -46,7 +52,14 @@ fn write_header(g: &AigGraph, is_ascii_not_binary: bool, out: &mut impl Write) -
     let o = g.outputs().len();
     let a = g.num_and_gates();
     let m = i + l + a;
-    // TODO: add support for properties and invariants
-    writeln!(out, "{tag} {m} {i} {l} {o} {a}")?;
+    let b = g.bad_states().len();
+    let c = g.invariants().len();
+    let j = g.justice().len();
+    let f = g.fairness().len();
+    if b + c + j + f > 0 {
+        writeln!(out, "{tag} {m} {i} {l} {o} {a} {b} {c} {j} {f}")?;
+    } else {
+        writeln!(out, "{tag} {m} {i} {l} {o} {a}")?;
+    }
     Ok(())
 }

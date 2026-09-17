@@ -274,6 +274,22 @@ impl AigGraph {
         &self.latches
     }
 
+    pub fn bad_states(&self) -> &[NodeId] {
+        &self.bad_states
+    }
+
+    pub fn invariants(&self) -> &[NodeId] {
+        &self.invariants
+    }
+
+    pub fn justice(&self) -> &[NodeId] {
+        &self.justice
+    }
+
+    pub fn fairness(&self) -> &[NodeId] {
+        &self.fairness
+    }
+
     pub fn num_and_gates(&self) -> usize {
         // there are only three kinds of nodes: inputs, latches and and gates
         self.nodes.len() - self.inputs.len() - self.latches.len()
@@ -287,6 +303,8 @@ impl AigGraph {
             .map(|(idx, _)| NodeId::from(idx))
     }
 
+    /// Returns an iterator over all labels in the following order:
+    /// output -> bad_states -> invariants -> justice -> fairness
     pub fn labels(&self) -> impl Iterator<Item = (LabelKind, usize, NodeId)> {
         self.outputs
             .iter()
