@@ -30,7 +30,7 @@ pub fn write_ascii_aiger(g: &AigGraph, out: &mut impl Write) -> Result<()> {
 }
 
 fn to_lit(id: NodeId) -> usize {
-    (usize::try_from(id).unwrap() << 1) + id.is_inverted() as usize
+    ((usize::try_from(id).unwrap() + 1) << 1) + id.is_inverted() as usize
 }
 
 pub fn write_binary_aiger(g: &AigGraph, out: &mut impl Write) -> Result<()> {

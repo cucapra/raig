@@ -1,8 +1,9 @@
 use clap::{Parser, Subcommand};
-use raig::aiger::run_parser_with_options;
+use raig::aiger::{run_parser_with_options, write_ascii_aiger, write_binary_aiger};
 use raig::graph;
+use std::ffi::OsStr;
 use std::fs::{self, File};
-use std::io::{self, BufReader};
+use std::io::{self, BufReader, BufWriter};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -115,11 +116,18 @@ fn main() -> io::Result<()> {
             }
         }
 
-        Commands::Convert {
-            input: _,
-            output: _,
-        } => {
-            todo!("implement conversion logic");
+        Commands::Convert { input, output } => {
+            let graph = parse_input(&input, false)?;
+            if let Some(out) = output {
+                let mut out_writer = BufWriter::new(File::create(&out)?);
+                match out.extension().and_then(OsStr::to_str) {
+                    Some("aag") => write_ascii_aiger(&graph, &mut out_writer)?,
+                    Some("aig") => write_binary_aiger(&graph, &mut out_writer)?,
+                    _ => eprintln!("Unsupported file extension"),
+                }
+            } else {
+                write_ascii_aiger(&graph, &mut std::io::stdout())?;
+            }
         }
 
         Commands::Dot {
