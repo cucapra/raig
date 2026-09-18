@@ -20,10 +20,10 @@ pub fn write_aiger_with_symbol_table(
     mode: AigerMode,
     out: &mut impl Write,
 ) -> Result<()> {
-    write_aiger_with_symbol_table_and_comments(g, st, &"", mode, out)
+    write_aiger_with_symbol_table_and_comments(g, st, "", mode, out)
 }
 
-pub fn write_aiger_with_symbol_table_and_comments<'a>(
+pub fn write_aiger_with_symbol_table_and_comments(
     g: &AigGraph,
     st: &SymbolTable,
     comments: &str,
@@ -113,7 +113,7 @@ fn write_delta(out: &mut impl Write, mut delta: u64) -> Result<()> {
     debug_assert!(delta <= 0x7f);
     buf[idx] = delta as u8;
     idx += 1;
-    out.write(&buf[0..idx])?;
+    out.write_all(&buf[0..idx])?;
     Ok(())
 }
 
