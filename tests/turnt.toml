@@ -10,12 +10,13 @@ output."opt.dot" = "-"
 
 [envs.aag]
 command = "../target/debug/raig convert --ascii {filename}"
-out_dir = "../../aiger/outputs"
+out_dir = "outputs"
 output.aag = "-"
 
 [envs.aig]
-command = "../target/debug/raig convert --binary {filename}"
-out_dir = "../../aiger/outputs"
+command = "../target/debug/raig convert --binary {filename} | ../target/debug/raig convert -"
+binary=true
+out_dir = "outputs"
 output.aig = "-"
 
 # [envs.rust]
