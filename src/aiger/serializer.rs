@@ -66,10 +66,55 @@ fn write_ascii_aiger_body(g: &AigGraph, out: &mut impl Write) -> Result<()> {
 
     Ok(())
 }
-fn write_binary_aiger_body(_g: &AigGraph, _out: &mut impl Write) -> Result<()> {
-    // for the binary format, we need to make sure that our IDs follow all the constraints
+fn write_binary_aiger_body(g: &AigGraph, out: &mut impl Write) -> Result<()> {
+    // For now, we check that the graph abides by all constraints and fail if it does not.
+    for (idx, &input) in g.inputs().iter().enumerate() {
+        assert_eq!(to_lit(input), 2 * (idx + 1));
+    }
+    let offset = g.inputs().len();
+    for (idx, &latch) in g.latches().iter().enumerate() {
+        assert_eq!(to_lit(latch), 2 * (idx + offset + 1));
+    }
 
-    todo!("binary")
+    for &latch in g.latches() {
+        writeln!(out, "{}", to_lit(g[latch].get_latch_input().unwrap()))?;
+    }
+    for (_, _, source) in g.labels() {
+        writeln!(out, "{}", to_lit(source))?;
+    }
+    let num_inputs = g.inputs().len();
+    let num_latches = g.latches().len();
+    for (idx, gate) in g.and_gates().enumerate() {
+        let lhs_lit = to_lit(gate);
+        assert_eq!(lhs_lit, 2 * (1 + num_inputs + num_latches + idx));
+        let left_lit = to_lit(g[gate].left());
+        let right_lit = to_lit(g[gate].right());
+        let rhs0_lit = std::cmp::max(left_lit, right_lit);
+        let rhs1_lit = std::cmp::min(left_lit, right_lit);
+        assert!(lhs_lit >= rhs0_lit);
+        let delta0 = lhs_lit - rhs0_lit;
+        let delta1 = rhs0_lit - rhs1_lit;
+        write_delta(out, delta0 as u64)?;
+        write_delta(out, delta1 as u64)?;
+    }
+
+    Ok(())
+}
+
+fn write_delta(out: &mut impl Write, mut delta: u64) -> Result<()> {
+    let mut buf = [0u8; 12];
+    let mut idx = 0usize;
+    while delta > 0x7f {
+        let byte = (delta as u8 & 0x7f) | (1 << 7);
+        buf[idx] = byte;
+        idx += 1;
+        delta >>= 7;
+    }
+    debug_assert!(delta <= 0x7f);
+    buf[idx] = delta as u8;
+    idx += 1;
+    out.write(&buf[0..idx])?;
+    Ok(())
 }
 
 fn to_lit(id: NodeId) -> usize {
