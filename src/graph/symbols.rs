@@ -186,7 +186,8 @@ impl StringStorage {
             let index = (sym.get() - 2) as usize;
             let start = if index == 0 { 0 } else { self.ends[index - 1] } as usize;
             let end = self.ends[index] as usize;
-            unsafe { core::str::from_utf8_unchecked(&self.bytes[start..end]) }
+            let raw_bytes = &self.bytes[start..end];
+            unsafe { core::str::from_utf8_unchecked(raw_bytes) }
         }
     }
 }
