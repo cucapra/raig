@@ -10,7 +10,7 @@
 //!
 //! let aiger = b"aag 1 1 0 1 0\n2\n2\n";
 //! let mut reader = BufReader::new(&aiger[..]);
-//! let graph = run_parser_with_options(&mut reader, true)?;
+//! let (graph, _, _) = run_parser_with_options(&mut reader, true)?;
 //!
 //! let inputs = vec![vec![Value::MAX]];
 //! let trace = graph.simulate(inputs.as_slice());
