@@ -34,7 +34,7 @@ pub fn parse_ascii_aiger_into_graph(
         latch_inputs.push((latch_id, latch_input_lit));
     }
 
-    // same idea for outputs! save 'em for later
+    // same idea for all labels, we save them for later
     let mut label_lits: Vec<usize> = Vec::with_capacity(header.num_labels());
 
     for _ in 0..header.num_labels() {
