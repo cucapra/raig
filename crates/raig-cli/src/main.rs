@@ -52,6 +52,13 @@ enum Commands {
         /// Input .aag/.aig file, or '-' to read from stdin
         input: String,
 
+        /// save output as ascii
+        #[arg(long)]
+        ascii: bool,
+
+        #[arg(long)]
+        binary: bool,
+
         /// Output .aag/.aig name and location file
         /// examples:
         ///   --output aiger.aag
@@ -117,35 +124,37 @@ fn main() -> io::Result<()> {
             }
         }
 
-        Commands::Convert { input, output } => {
-            let (graph, st, comments) = parse_input(&input, false)?;
+        Commands::Convert {
+            input,
+            output,
+            ascii,
+            binary,
+        } => {
+            let (g, st, c) = parse_input(&input, false)?;
+            let ext_mode =
+                output
+                    .as_deref()
+                    .and_then(|o| match o.extension().and_then(OsStr::to_str) {
+                        Some("aag") => Some(AigerMode::Ascii),
+                        Some("aig") => Some(AigerMode::Binary),
+                        _ => None,
+                    });
+            let flag_mode = match (ascii, binary) {
+                (false, false) => None,
+                (true, false) => Some(AigerMode::Ascii),
+                (false, true) => Some(AigerMode::Binary),
+                (true, true) => {
+                    eprintln!("Cannot respect --ascii and --binary at the same time.");
+                    None
+                }
+            };
+            let mode = flag_mode.unwrap_or(ext_mode.unwrap_or(AigerMode::Ascii));
+
             if let Some(out) = output {
                 let mut out_writer = BufWriter::new(File::create(&out)?);
-                match out.extension().and_then(OsStr::to_str) {
-                    Some("aag") => write_aiger_with_symbol_table_and_comments(
-                        &graph,
-                        &st,
-                        &comments,
-                        AigerMode::Ascii,
-                        &mut out_writer,
-                    )?,
-                    Some("aig") => write_aiger_with_symbol_table_and_comments(
-                        &graph,
-                        &st,
-                        &comments,
-                        AigerMode::Binary,
-                        &mut out_writer,
-                    )?,
-                    _ => eprintln!("Unsupported file extension"),
-                }
+                write_aiger_with_symbol_table_and_comments(&g, &st, &c, mode, &mut out_writer)?;
             } else {
-                write_aiger_with_symbol_table_and_comments(
-                    &graph,
-                    &st,
-                    &comments,
-                    AigerMode::Ascii,
-                    &mut io::stdout(),
-                )?;
+                write_aiger_with_symbol_table_and_comments(&g, &st, &c, mode, &mut io::stdout())?;
             }
         }
 

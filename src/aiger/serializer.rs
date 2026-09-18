@@ -69,7 +69,6 @@ fn write_ascii_aiger_body(g: &AigGraph, out: &mut impl Write) -> Result<()> {
 fn write_binary_aiger_body(_g: &AigGraph, _out: &mut impl Write) -> Result<()> {
     // for the binary format, we need to make sure that our IDs follow all the constraints
 
-
     todo!("binary")
 }
 
