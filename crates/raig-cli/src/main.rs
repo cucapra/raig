@@ -1,8 +1,10 @@
 use clap::{Parser, Subcommand};
-use raig::aiger::run_parser_with_options;
+use raig::aiger::{AigerMode, run_parser_with_options, write_aiger_with_symbol_table_and_comments};
 use raig::graph;
+use raig::graph::SymbolTable;
+use std::ffi::OsStr;
 use std::fs::{self, File};
-use std::io::{self, BufReader};
+use std::io::{self, BufReader, BufWriter};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -49,6 +51,13 @@ enum Commands {
     Convert {
         /// Input .aag/.aig file, or '-' to read from stdin
         input: String,
+
+        /// save output as ascii
+        #[arg(long)]
+        ascii: bool,
+
+        #[arg(long)]
+        binary: bool,
 
         /// Output .aag/.aig name and location file
         /// examples:
@@ -100,7 +109,7 @@ fn main() -> io::Result<()> {
             pre_optimize,
             pretty,
         } => {
-            let graph = parse_input(&input, pre_optimize)?;
+            let (graph, _, _) = parse_input(&input, pre_optimize)?;
 
             let stimulus_file = File::open(&stimulus)?;
             let stimulus_reader = BufReader::new(stimulus_file);
@@ -116,10 +125,37 @@ fn main() -> io::Result<()> {
         }
 
         Commands::Convert {
-            input: _,
-            output: _,
+            input,
+            output,
+            ascii,
+            binary,
         } => {
-            todo!("implement conversion logic");
+            let (g, st, c) = parse_input(&input, false)?;
+            let ext_mode =
+                output
+                    .as_deref()
+                    .and_then(|o| match o.extension().and_then(OsStr::to_str) {
+                        Some("aag") => Some(AigerMode::Ascii),
+                        Some("aig") => Some(AigerMode::Binary),
+                        _ => None,
+                    });
+            let flag_mode = match (ascii, binary) {
+                (false, false) => None,
+                (true, false) => Some(AigerMode::Ascii),
+                (false, true) => Some(AigerMode::Binary),
+                (true, true) => {
+                    eprintln!("Cannot respect --ascii and --binary at the same time.");
+                    None
+                }
+            };
+            let mode = flag_mode.unwrap_or(ext_mode.unwrap_or(AigerMode::Ascii));
+
+            if let Some(out) = output {
+                let mut out_writer = BufWriter::new(File::create(&out)?);
+                write_aiger_with_symbol_table_and_comments(&g, &st, &c, mode, &mut out_writer)?;
+            } else {
+                write_aiger_with_symbol_table_and_comments(&g, &st, &c, mode, &mut io::stdout())?;
+            }
         }
 
         Commands::Dot {
@@ -127,7 +163,7 @@ fn main() -> io::Result<()> {
             pre_optimize,
             output,
         } => {
-            let graph = parse_input(&input, pre_optimize)?;
+            let (graph, _, _) = parse_input(&input, pre_optimize)?;
             let dot: String = graph.to_dot();
 
             if let Some(output) = output {
@@ -142,7 +178,10 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn parse_input(input: &str, pre_optimize: bool) -> io::Result<graph::AigGraph> {
+fn parse_input(
+    input: &str,
+    pre_optimize: bool,
+) -> io::Result<(graph::AigGraph, SymbolTable, String)> {
     if input == "-" {
         let stdin = io::stdin();
         let mut reader = BufReader::new(stdin.lock());

@@ -42,3 +42,11 @@ jobs:
 
       - name: Run AIGER snapshot tests
         run: turnt -e raw -e opt tests/inputs/*.aag
+
+      - name: aig -> aag
+        run: turnt -e aag tests/inputs/hrt/*.aig
+
+      - name: aig/aag -> aag -> aig
+        run: |
+          turnt -e aig tests/inputs/hrt/*.aig
+          turnt -e aig tests/inputs/*.aag

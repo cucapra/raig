@@ -8,6 +8,17 @@ command = "../target/debug/raig dot {filename} --pre-optimize"
 out_dir = "../aiger/outputs"
 output."opt.dot" = "-"
 
+[envs.aag]
+command = "../target/debug/raig convert --ascii {filename}"
+out_dir = "outputs"
+output.aag = "-"
+
+[envs.aig]
+command = "../target/debug/raig convert --binary {filename} | ../target/debug/raig convert -"
+binary=true
+out_dir = "outputs"
+output.aig = "-"
+
 # [envs.rust]
 # command = "../target/debug/raig simulate {filename} inputs/{base}.stim"
 # out_dir = "../simulation/outputs"

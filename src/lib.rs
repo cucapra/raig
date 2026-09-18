@@ -66,7 +66,7 @@
 //!
 //! let uploaded_aiger = b"aag 1 1 0 1 0\n2\n2\n";
 //! let mut reader = BufReader::new(&uploaded_aiger[..]);
-//! let graph = run_parser_with_options(&mut reader, true)?;
+//! let (graph, _, _) = run_parser_with_options(&mut reader, true)?;
 //!
 //! # let _ = graph;
 //! # Ok::<(), std::io::Error>(())
@@ -84,7 +84,7 @@
 //!
 //! let file = File::open("circuit.aag")?;
 //! let mut reader = BufReader::new(file);
-//! let graph = run_parser_with_options(&mut reader, true)?;
+//! let (graph, _, _) = run_parser_with_options(&mut reader, true)?;
 //!
 //! # let _ = graph;
 //! # Ok::<(), std::io::Error>(())
@@ -107,7 +107,7 @@
 //!
 //! let uploaded_aiger = b"aag 1 1 0 1 0\n2\n2\n";
 //! let mut reader = BufReader::new(&uploaded_aiger[..]);
-//! let graph = run_parser_with_options(&mut reader, true)?;
+//! let (graph, _, _) = run_parser_with_options(&mut reader, true)?;
 //!
 //! let stimulus = vec![
 //!     vec![0],
@@ -134,7 +134,7 @@
 //!
 //! let uploaded_aiger = b"aag 1 1 0 1 0\n2\n2\n";
 //! let mut reader = BufReader::new(&uploaded_aiger[..]);
-//! let graph = run_parser_with_options(&mut reader, true)?;
+//! let (graph, _, _) = run_parser_with_options(&mut reader, true)?;
 //!
 //! let dot = graph.to_dot();
 //! assert!(dot.contains("digraph AIG"));

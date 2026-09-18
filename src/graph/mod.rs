@@ -9,9 +9,11 @@ use std::ops::Index;
 mod eval;
 mod graphviz;
 mod stimulus;
+mod symbols;
 
 pub use eval::{SimulationStep, Simulator, Value};
 pub use stimulus::{Stimulus, StimulusParser};
+pub use symbols::{SymbolKind, SymbolTable};
 
 /// An identifier for a signal in an AIG.
 ///
@@ -33,6 +35,15 @@ pub struct AigNode {
     right: NodeId,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum LabelKind {
+    Output,
+    BadState,
+    Constraints,
+    Justice,
+    Fairness,
+}
+
 /// A built AIG that can be evaluated, simulated, or rendered as DOT.
 #[derive(Debug)]
 pub struct AigGraph {
@@ -40,6 +51,10 @@ pub struct AigGraph {
     inputs: Vec<NodeId>,
     latches: Vec<NodeId>,
     outputs: Vec<NodeId>,
+    bad_states: Vec<NodeId>,
+    constraints: Vec<NodeId>,
+    justice: Vec<NodeId>,
+    fairness: Vec<NodeId>,
 }
 
 /// Incrementally builds an [`AigGraph`].
@@ -217,6 +232,14 @@ impl AigNode {
 
         self.right = latch_input;
     }
+
+    pub fn get_latch_input(&self) -> Option<NodeId> {
+        if self.is_latch() {
+            Some(self.right)
+        } else {
+            None
+        }
+    }
 }
 
 impl AigGraph {
@@ -227,6 +250,10 @@ impl AigGraph {
             inputs: Vec::new(),
             latches: Vec::new(),
             outputs: Vec::new(),
+            bad_states: vec![],
+            constraints: vec![],
+            justice: vec![],
+            fairness: vec![],
         }
     }
 
@@ -236,6 +263,79 @@ impl AigGraph {
     /// latch has been created.
     pub fn node(&mut self, id: NodeId) -> &mut AigNode {
         &mut self.nodes[id.index()]
+    }
+
+    pub fn inputs(&self) -> &[NodeId] {
+        &self.inputs
+    }
+    pub fn outputs(&self) -> &[NodeId] {
+        &self.outputs
+    }
+
+    pub fn latches(&self) -> &[NodeId] {
+        &self.latches
+    }
+
+    pub fn bad_states(&self) -> &[NodeId] {
+        &self.bad_states
+    }
+
+    pub fn invariants(&self) -> &[NodeId] {
+        &self.constraints
+    }
+
+    pub fn justice(&self) -> &[NodeId] {
+        &self.justice
+    }
+
+    pub fn fairness(&self) -> &[NodeId] {
+        &self.fairness
+    }
+
+    pub fn num_and_gates(&self) -> usize {
+        // there are only three kinds of nodes: inputs, latches and and gates
+        self.nodes.len() - self.inputs.len() - self.latches.len()
+    }
+
+    pub fn and_gates(&self) -> impl Iterator<Item = NodeId> {
+        self.nodes
+            .iter()
+            .enumerate()
+            .filter(|(_, node)| node.is_and())
+            .map(|(idx, _)| NodeId::from(idx))
+    }
+
+    /// Returns an iterator over all labels in the following order:
+    /// output -> bad_states -> constraints -> justice -> fairness
+    pub fn labels(&self) -> impl Iterator<Item = (LabelKind, usize, NodeId)> {
+        self.outputs
+            .iter()
+            .enumerate()
+            .map(|(i, &n)| (LabelKind::Output, i, n))
+            .chain(
+                self.bad_states
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &n)| (LabelKind::BadState, i, n)),
+            )
+            .chain(
+                self.constraints
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &n)| (LabelKind::Constraints, i, n)),
+            )
+            .chain(
+                self.justice
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &n)| (LabelKind::Justice, i, n)),
+            )
+            .chain(
+                self.fairness
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &n)| (LabelKind::Fairness, i, n)),
+            )
     }
 }
 
@@ -347,6 +447,22 @@ impl AigBuilder {
     /// Add a primary output signal.
     pub fn add_output(&mut self, output: NodeId) {
         self.graph.outputs.push(output);
+    }
+
+    pub fn add_bad_state(&mut self, output: NodeId) {
+        self.graph.bad_states.push(output);
+    }
+
+    pub fn add_invariant(&mut self, output: NodeId) {
+        self.graph.constraints.push(output);
+    }
+
+    pub fn add_justice(&mut self, output: NodeId) {
+        self.graph.justice.push(output);
+    }
+
+    pub fn add_fairness(&mut self, output: NodeId) {
+        self.graph.fairness.push(output);
     }
 }
 

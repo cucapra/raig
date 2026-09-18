@@ -1,4 +1,4 @@
-use super::{AigGraph, NodeId};
+use super::{AigGraph, LabelKind, NodeId};
 
 impl AigGraph {
     /// Render this graph as Graphviz DOT text.
@@ -72,15 +72,19 @@ impl AigGraph {
 
         dot.push('\n');
 
-        for (index, output) in self.outputs.iter().enumerate() {
-            let output_name = format!("out{}", index);
+        for (kind, index, expr) in self.labels() {
+            let prefix = match kind {
+                LabelKind::Output => "out",
+                LabelKind::BadState => "bad",
+                LabelKind::Constraints => "inv",
+                LabelKind::Justice => "just",
+                LabelKind::Fairness => "fair",
+            };
+            let name = format!("{prefix}{index}");
 
-            dot.push_str(&format!(
-                "\t{} [label=\"out{}\", shape=box];\n",
-                output_name, index
-            ));
+            dot.push_str(&format!("\t{name} [label=\"{name}\", shape=box];\n",));
 
-            Self::write_dot_edge(&mut dot, *output, &output_name, "");
+            Self::write_dot_edge(&mut dot, expr, &name, "");
         }
 
         dot.push_str("}\n");

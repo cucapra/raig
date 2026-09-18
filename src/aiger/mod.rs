@@ -10,7 +10,7 @@
 //!
 //! let aiger = b"aag 1 1 0 1 0\n2\n2\n";
 //! let mut reader = BufReader::new(&aiger[..]);
-//! let graph = run_parser_with_options(&mut reader, true)?;
+//! let (graph, _, _) = run_parser_with_options(&mut reader, true)?;
 //!
 //! let inputs = vec![vec![Value::MAX]];
 //! let trace = graph.simulate(inputs.as_slice());
@@ -22,16 +22,19 @@ use std::io::{self, BufRead, Error};
 
 mod ascii_parser;
 mod binary_parser;
+mod serializer;
 
-use crate::graph::{AigGraph, NodeId};
+use crate::graph::{AigBuilder, AigGraph, NodeId, SymbolKind, SymbolTable};
 use ascii_parser::parse_ascii_aiger_into_graph;
 use binary_parser::parse_binary_aiger_into_graph;
+
+pub use serializer::*;
 
 /// Parsed metadata from an AIGER header line.
 #[derive(Debug)]
 pub struct AigerHeader {
-    /// `true` for ASCII AIGER (`aag`), `false` for binary AIGER (`aig`).
-    pub is_ascii: bool,
+    /// ASCII AIGER (`aag`) or binary AIGER (`aig`).
+    pub mode: AigerMode,
 
     /// Maximum variable index (`M` in the AIGER header).
     pub max_var: usize,
@@ -61,6 +64,34 @@ pub struct AigerHeader {
     pub num_fairness: usize,
 }
 
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub enum AigerMode {
+    /// `.aag`
+    Ascii,
+    /// `.aig`
+    Binary,
+}
+
+impl AigerMode {
+    pub const fn ext(&self) -> &'static str {
+        match self {
+            AigerMode::Ascii => "aag",
+            AigerMode::Binary => "aig",
+        }
+    }
+}
+
+impl AigerHeader {
+    /// Returns the total number of outputs, bad_states, invariants, justice and fairness properties
+    pub fn num_labels(&self) -> usize {
+        self.num_outputs
+            + self.num_bad_states
+            + self.num_invariants
+            + self.num_justice
+            + self.num_fairness
+    }
+}
+
 /// Parse an AIGER stream into an [`AigGraph`].
 ///
 /// The parser accepts ASCII AIGER (`aag`) and binary AIGER (`aig`) input. When
@@ -69,16 +100,12 @@ pub struct AigerHeader {
 pub fn run_parser_with_options(
     reader: &mut impl BufRead,
     pre_optimize: bool,
-) -> io::Result<AigGraph> {
+) -> io::Result<(AigGraph, SymbolTable, String)> {
     let header: AigerHeader = verify_aiger_header(reader)?;
-
-    let graph: AigGraph = if header.is_ascii {
-        parse_ascii_aiger_into_graph(header, reader, pre_optimize)?
-    } else {
-        parse_binary_aiger_into_graph(header, reader, pre_optimize)?
-    };
-
-    Ok(graph)
+    match header.mode {
+        AigerMode::Ascii => parse_ascii_aiger_into_graph(header, reader, pre_optimize),
+        AigerMode::Binary => parse_binary_aiger_into_graph(header, reader, pre_optimize),
+    }
 }
 
 /// Parse an optional AIGER header field, which defaults to zero.
@@ -96,11 +123,12 @@ pub fn verify_aiger_header(reader: &mut impl BufRead) -> Result<AigerHeader, Err
     let mut parser = LineParser::default();
     parser.read_line(reader)?;
     let tag = parser.parse_word();
-    let is_ascii = match tag {
-        b"aag" => true,
-        b"aig" => false,
+    let mode = match tag {
+        b"aag" => AigerMode::Ascii,
+        b"aig" => AigerMode::Binary,
         _ => panic!("Invalid tag, must be either 'aag' or 'aig'"),
     };
+    debug_assert_eq!(mode.ext().as_bytes(), tag);
 
     // The basic header fields.
     let [max_var, num_inputs, num_latches, num_outputs, num_and_gates] = parser
@@ -126,7 +154,7 @@ pub fn verify_aiger_header(reader: &mut impl BufRead) -> Result<AigerHeader, Err
         )
     }
 
-    if max_var != expected_max_var && !is_ascii {
+    if max_var != expected_max_var && mode == AigerMode::Binary {
         panic!(
             "Binary AIGER requires M = I + L + A, got M={} and I+L+A={}",
             max_var, expected_max_var
@@ -134,7 +162,7 @@ pub fn verify_aiger_header(reader: &mut impl BufRead) -> Result<AigerHeader, Err
     }
 
     Ok(AigerHeader {
-        is_ascii,
+        mode,
         max_var,
         num_inputs,
         num_latches,
@@ -145,6 +173,38 @@ pub fn verify_aiger_header(reader: &mut impl BufRead) -> Result<AigerHeader, Err
         num_justice,
         num_fairness,
     })
+}
+
+fn resolve_labels_and_latches(
+    mut label_lits: Vec<usize>,
+    latch_inputs: Vec<(NodeId, usize)>,
+    header: &AigerHeader,
+    graph: &mut AigBuilder,
+    literals: &Literals,
+) {
+    for (latch_id, latch_input_lit) in latch_inputs {
+        let latch_input_id: NodeId = literals.get(latch_input_lit);
+        graph.node(latch_id).set_latch_input(latch_input_id);
+    }
+
+    // resolve labels
+    label_lits.reverse();
+    for _ in 0..header.num_outputs {
+        graph.add_output(literals.get(label_lits.pop().unwrap()));
+    }
+    for _ in 0..header.num_bad_states {
+        graph.add_bad_state(literals.get(label_lits.pop().unwrap()));
+    }
+    for _ in 0..header.num_invariants {
+        graph.add_invariant(literals.get(label_lits.pop().unwrap()));
+    }
+    for _ in 0..header.num_justice {
+        graph.add_justice(literals.get(label_lits.pop().unwrap()));
+    }
+    for _ in 0..header.num_fairness {
+        graph.add_fairness(literals.get(label_lits.pop().unwrap()));
+    }
+    debug_assert!(label_lits.is_empty());
 }
 
 /// A mapping from AIGER literal indices to our internal `NodeId`s.
@@ -319,6 +379,34 @@ impl<'a, R: BufRead> LineReader<'a, R> {
         self.parser.read_line(self.reader)?;
         Ok(self.parser.parse_ints())
     }
+}
+
+fn parse_symbol_table_and_comments<R: BufRead>(
+    reader: &mut LineReader<R>,
+) -> Result<(SymbolTable, String), Error> {
+    let st = parse_symbol_table(reader)?;
+    let mut comments = "".to_string();
+    if !reader.parser.rest().is_empty() && reader.parser.rest().trim_ascii() == b"c" {
+        reader.reader.read_to_string(&mut comments)?;
+    }
+    Ok((st, comments))
+}
+
+fn parse_symbol_table<R: BufRead>(reader: &mut LineReader<R>) -> Result<SymbolTable, Error> {
+    reader.parser.clear();
+    let mut st = SymbolTable::default();
+    reader.parser.read_line(reader.reader)?;
+    while let Some(kind) = reader.parser.pop_if(SymbolKind::is_tag) {
+        let index = reader.parser.parse_int().expect("expected an index");
+        reader.parser.skip_whitespace();
+        let name = std::str::from_utf8(reader.parser.rest())
+            .expect("expected valid utf-8")
+            .trim_ascii();
+        let kind = SymbolKind::from_tag(kind).unwrap();
+        st.name_symbol(kind, index, name);
+        reader.parser.read_line(reader.reader)?;
+    }
+    Ok(st)
 }
 
 #[cfg(test)]

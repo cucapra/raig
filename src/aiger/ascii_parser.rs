@@ -1,18 +1,15 @@
 use std::io::{BufRead, Error};
 
-use crate::aiger::{AigerHeader, LineReader, Literals};
-use crate::graph::{AigBuilder, AigGraph, NodeId};
+use crate::aiger::{
+    AigerHeader, LineReader, Literals, parse_symbol_table_and_comments, resolve_labels_and_latches,
+};
+use crate::graph::{AigBuilder, AigGraph, NodeId, SymbolTable};
 
 pub fn parse_ascii_aiger_into_graph(
     header: AigerHeader,
     reader: &mut impl BufRead,
     pre_optimize: bool,
-) -> Result<AigGraph, Error> {
-    assert_eq!(header.num_bad_states, 0, "bad states not supported");
-    assert_eq!(header.num_invariants, 0, "invariants not supported");
-    assert_eq!(header.num_justice, 0, "justice properties not supported");
-    assert_eq!(header.num_fairness, 0, "fairness constraints not supported");
-
+) -> Result<(AigGraph, SymbolTable, String), Error> {
     let mut graph = AigBuilder::new();
     let mut literals = Literals::new(header.max_var);
     let mut line_reader = LineReader::new(reader);
@@ -37,12 +34,12 @@ pub fn parse_ascii_aiger_into_graph(
         latch_inputs.push((latch_id, latch_input_lit));
     }
 
-    // same idea for outputs! save 'em for later
-    let mut output_lits: Vec<usize> = Vec::with_capacity(header.num_outputs);
+    // same idea for all labels, we save them for later
+    let mut label_lits: Vec<usize> = Vec::with_capacity(header.num_labels());
 
-    for _ in 0..header.num_outputs {
+    for _ in 0..header.num_labels() {
         let output_lit = line_reader.read_int()?.expect("malformed output line");
-        output_lits.push(output_lit);
+        label_lits.push(output_lit);
     }
 
     for _ in 0..header.num_and_gates {
@@ -60,17 +57,9 @@ pub fn parse_ascii_aiger_into_graph(
         literals.add(lhs_lit, and_id);
     }
 
-    // now resolve lateches!
-    for (latch_id, latch_input_lit) in latch_inputs {
-        let latch_input_id: NodeId = literals.get(latch_input_lit);
-        graph.node(latch_id).set_latch_input(latch_input_id);
-    }
+    resolve_labels_and_latches(label_lits, latch_inputs, &header, &mut graph, &literals);
 
-    // now resolve outputs!
-    for output_lit in output_lits {
-        let output_id: NodeId = literals.get(output_lit);
-        graph.add_output(output_id);
-    }
-
-    Ok(graph.build())
+    // optional symbol table
+    let (st, comments) = parse_symbol_table_and_comments(&mut line_reader)?;
+    Ok((graph.build(), st, comments))
 }
