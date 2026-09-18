@@ -24,7 +24,7 @@ mod ascii_parser;
 mod binary_parser;
 mod serializer;
 
-use crate::graph::{AigGraph, NodeId, SymbolKind, SymbolTable};
+use crate::graph::{AigBuilder, AigGraph, NodeId, SymbolKind, SymbolTable};
 use ascii_parser::parse_ascii_aiger_into_graph;
 use binary_parser::parse_binary_aiger_into_graph;
 
@@ -173,6 +173,38 @@ pub fn verify_aiger_header(reader: &mut impl BufRead) -> Result<AigerHeader, Err
         num_justice,
         num_fairness,
     })
+}
+
+fn resolve_labels_and_latches(
+    mut label_lits: Vec<usize>,
+    latch_inputs: Vec<(NodeId, usize)>,
+    header: &AigerHeader,
+    graph: &mut AigBuilder,
+    literals: &Literals,
+) {
+    for (latch_id, latch_input_lit) in latch_inputs {
+        let latch_input_id: NodeId = literals.get(latch_input_lit);
+        graph.node(latch_id).set_latch_input(latch_input_id);
+    }
+
+    // resolve labels
+    label_lits.reverse();
+    for _ in 0..header.num_outputs {
+        graph.add_output(literals.get(label_lits.pop().unwrap()));
+    }
+    for _ in 0..header.num_bad_states {
+        graph.add_bad_state(literals.get(label_lits.pop().unwrap()));
+    }
+    for _ in 0..header.num_invariants {
+        graph.add_invariant(literals.get(label_lits.pop().unwrap()));
+    }
+    for _ in 0..header.num_justice {
+        graph.add_justice(literals.get(label_lits.pop().unwrap()));
+    }
+    for _ in 0..header.num_fairness {
+        graph.add_fairness(literals.get(label_lits.pop().unwrap()));
+    }
+    debug_assert!(label_lits.is_empty());
 }
 
 /// A mapping from AIGER literal indices to our internal `NodeId`s.

@@ -1,6 +1,8 @@
 use std::io::{BufRead, Error, Read};
 
-use crate::aiger::{AigerHeader, LineReader, Literals, parse_symbol_table_and_comments};
+use crate::aiger::{
+    AigerHeader, LineReader, Literals, parse_symbol_table_and_comments, resolve_labels_and_latches,
+};
 use crate::graph::{AigBuilder, AigGraph, NodeId, SymbolTable};
 
 pub fn parse_binary_aiger_into_graph(
@@ -60,30 +62,7 @@ pub fn parse_binary_aiger_into_graph(
         literals.add(lhs_lit, and_id);
     }
 
-    // resolve latches
-    for (latch_id, latch_input_lit) in latch_inputs {
-        let latch_input_id: NodeId = literals.get(latch_input_lit);
-        graph.node(latch_id).set_latch_input(latch_input_id);
-    }
-
-    // resolve labels
-    label_lits.reverse();
-    for _ in 0..header.num_outputs {
-        graph.add_output(literals.get(label_lits.pop().unwrap()));
-    }
-    for _ in 0..header.num_bad_states {
-        graph.add_bad_state(literals.get(label_lits.pop().unwrap()));
-    }
-    for _ in 0..header.num_invariants {
-        graph.add_invariant(literals.get(label_lits.pop().unwrap()));
-    }
-    for _ in 0..header.num_justice {
-        graph.add_justice(literals.get(label_lits.pop().unwrap()));
-    }
-    for _ in 0..header.num_fairness {
-        graph.add_fairness(literals.get(label_lits.pop().unwrap()));
-    }
-    debug_assert!(label_lits.is_empty());
+    resolve_labels_and_latches(label_lits, latch_inputs, &header, &mut graph, &literals);
 
     // optional symbol table
     let mut line_reader = LineReader::new(reader);
