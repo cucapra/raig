@@ -136,11 +136,11 @@ dependencies = [
 
 [[package]]
 name = "raig"
-version = "0.1.1"
+version = "0.2.0"
 
 [[package]]
 name = "raig-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "clap",
  "raig",

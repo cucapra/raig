@@ -5,7 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.1] - 2026-08-19
+## [0.2.0] - 2026-10-24
+
+### Added
+- ASCII and binary AIGER serialization, symbol tables, and comment preservation (#26).
+- Internal fanin analysis for finding gates and latches that use a signal (#27).
+
+### Changed
+- **Breaking:** `run_parser_with_options` now returns `(AigGraph, SymbolTable, String)`.
+- **Breaking:** `AigerHeader::is_ascii` is replaced by `AigerHeader::mode`, using `AigerMode`.
+- Release `raig-cli` 0.1.1 with serialization support and a dependency on `raig` 0.2.0.
+
+## [0.1.1] - 2026-08-19
 
 ### Added
 - release raig-cli as a seperate crate

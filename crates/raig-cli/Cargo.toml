@@ -1,12 +1,12 @@
 [package]
 name = "raig-cli"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Modi Goldstein-Rosenfeld <mbg237@cornell.edu>", "Adrian Sampson <asampson@cs.cornell.edu>", "Kevin Laeufer <laeufer@cornell.edu>"]
 edition = "2024"
 rust-version = "1.85"
 description = "Command-line tools for working with And-Inverter Graphs (AIGs)"
 documentation = "https://docs.rs/raig-cli"
-repository = "https://github.com/cucapra/aig"
+repository = "https://github.com/cucapra/raig"
 license = "MIT"
 readme = "README.md"
 keywords = ["aig", "aiger", "logic", "verification", "boolean"]
@@ -23,4 +23,4 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4.6.1", features = ["derive"] }
-raig = { path = "../..", version = "0.1.0" }
+raig = { path = "../..", version = "0.2.0" }
