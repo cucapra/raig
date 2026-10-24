@@ -30,3 +30,7 @@ cargo install raig-cli
 ## License
 
 Licensed under the MIT license.
+
+## Benchmarks
+
+See [`the public benchmarking repo`](https://github.com/cucapra/raig-benchmarks)

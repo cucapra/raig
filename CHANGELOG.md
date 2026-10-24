@@ -12,9 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Internal fanin analysis for finding gates and latches that use a signal (#27).
 
 ### Changed
-- **Breaking:** `run_parser_with_options` now returns `(AigGraph, SymbolTable, String)`.
-- **Breaking:** `AigerHeader::is_ascii` is replaced by `AigerHeader::mode`, using `AigerMode`.
+- `run_parser_with_options` now returns `(AigGraph, SymbolTable, String)`.
+- `AigerHeader::is_ascii` is replaced by `AigerHeader::mode`, using `AigerMode`.
 - Release `raig-cli` 0.1.1 with serialization support and a dependency on `raig` 0.2.0.
+
+git commit: 439ec1de77e33a25ae619212ee79b02bc9fc782d
 
 ## [0.1.1] - 2026-08-19
 
