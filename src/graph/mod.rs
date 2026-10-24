@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::ops::Index;
 
 mod eval;
+mod fanin;
 mod graphviz;
 mod stimulus;
 mod symbols;
