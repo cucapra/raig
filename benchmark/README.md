@@ -3,6 +3,8 @@
 Run the Benchmarks workflow from GitHub Actions, then download the
 `benchmark-results` artifact. The workflow measures the current version of `raig` using a release build.
 
+See [analysis.md](analysis.md) for the measured results from October 24, 2026.
+
 ## Memory
 
 [Massif](https://valgrind.org/docs/manual/ms-manual.html) measures heap usage while
