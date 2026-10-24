@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stop parsing symbols at the standalone `c` separator in ASCII and binary AIGER files, preserving the comment text without panicking.
 - Continue parsing constraint symbols such as `c0 constraint_name` normally.
 
-git commit: (fix comment parsing issue)
+git commit: 66c772149a12d422a5283dadec631f2675c7ab9f
 
 ## [0.2.0] - 2026-10-24
 
