@@ -1,15 +1,14 @@
-name: Memory benchmarks
+name: Benchmarks
 
 on:
   workflow_dispatch:
 
-jobs:
-  memory:
-    runs-on: ubuntu-24.04
-    env:
-      BENCHMARK_FILE: tests/inputs/function_exactly_two_of_four.aag
-      CARGO_TARGET_DIR: target/memory
+env:
+  CARGO_TARGET_DIR: target/benchmarks
 
+jobs:
+  benchmark:
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -17,38 +16,46 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install Valgrind
+      - name: Install benchmark tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y valgrind
+          sudo apt-get install -y valgrind hyperfine
 
-      - name: Build memory benchmarks
-        run: cargo build --manifest-path benchmark/memory/Cargo.toml --release --bins
-
-      - name: Profile raig
+      - name: Build raig
         run: |
-          valgrind \
-            --tool=massif \
-            --time-unit=B \
-            --massif-out-file=massif-raig.out \
-            ./target/memory/release/memory_raig "$BENCHMARK_FILE"
+          cargo build --locked --release -p raig-cli
 
-          ms_print massif-raig.out > massif-raig.txt
-
-      - name: Profile mutaig
+      - name: Measure parsing runtime
         run: |
-          valgrind \
-            --tool=massif \
-            --time-unit=B \
-            --massif-out-file=massif-mutaig.out \
-            ./target/memory/release/memory_mutaig "$BENCHMARK_FILE"
+          mkdir -p results
+          for binary in tests/inputs/hrt/*.aig; do
+            name=$(basename "$binary" .aig)
+            ascii="results/$name.aag"
+            ./target/benchmarks/release/raig convert "$binary" --ascii --output "$ascii"
+            for input in "$binary" "$ascii"; do
+              format="${input##*.}"
+              hyperfine --warmup 3 --runs 30 \
+                --export-json "results/runtime-$name-$format.json" \
+                "./target/benchmarks/release/raig parse '$input'" \
+                "./target/benchmarks/release/raig parse '$input' --pre-optimize"
+            done
+          done
 
-          ms_print massif-mutaig.out > massif-mutaig.txt
+      - name: Profile raig memory
+        run: |
+          for input in tests/inputs/hrt/*.aig; do
+            name=$(basename "$input" .aig)
+            valgrind --tool=massif --time-unit=B \
+              --massif-out-file="results/massif-raig-$name.out" \
+              ./target/benchmarks/release/raig parse "$input"
+            ms_print "results/massif-raig-$name.out" > "results/massif-raig-$name.txt"
+          done
 
-      - name: Upload profiles
+      - name: Upload results
         uses: actions/upload-artifact@v4
         with:
-          name: memory-profiles
+          name: benchmark-results
           path: |
-            massif-*.out
-            massif-*.txt
+            results/*.json
+            results/*.out
+            results/*.txt
