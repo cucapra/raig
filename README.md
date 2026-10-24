@@ -27,10 +27,6 @@ Install the command-line tool:
 cargo install raig-cli
 ```
 
-## Benchmarks
-
-See [benchmark/README.md](benchmark/README.md) for CLI runtime and memory benchmarks.
-
 ## License
 
 Licensed under the MIT license.
