@@ -34,7 +34,7 @@ jobs:
             ./target/benchmarks/release/raig convert "$binary" --ascii --output "$ascii"
             for input in "$binary" "$ascii"; do
               format="${input##*.}"
-              hyperfine --warmup 3 --runs 30 \
+              hyperfine --shell=none --warmup 3 --runs 30 \
                 --export-json "results/runtime-$name-$format.json" \
                 "./target/benchmarks/release/raig parse '$input'" \
                 "./target/benchmarks/release/raig parse '$input' --pre-optimize"
